@@ -1,0 +1,6 @@
+[submodule "src/minigraph"]
+	path = src/minigraph
+	url = https://github.com/lh3/minigraph
+[submodule "src/pbsim3"]
+	path = src/pbsim3
+	url = https://github.com/yukiteruono/pbsim3

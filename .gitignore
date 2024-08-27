@@ -1,0 +1,11 @@
+# Input data
+data/*
+
+# Generated data
+results/*
+
+# Lab notebook
+!results/lab_notebook.md
+
+# Compiled Executables
+bin*
