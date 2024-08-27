@@ -222,5 +222,7 @@ I'm inclined to favor graphaligner in a vacuum because we can use the multiple a
 
 In an ideal world the best method might be to map all reads to the pangenome by minigraph to determine the correct loci. Then on a per-loci level use graphaligner to determine the specific paths favored.
 
+Next steps will be to try using graphaligner on the All of Us portal.
 
+## 2024-08-27
 
