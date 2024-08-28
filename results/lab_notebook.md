@@ -224,5 +224,179 @@ In an ideal world the best method might be to map all reads to the pangenome by 
 
 Next steps will be to try using graphaligner on the All of Us portal.
 
-## 2024-08-27
+## 2024-08-28
+
+```bash
+OUTPUT=results/2024-08-28
+```
+
+Working on All of Us researcher workbench. I want to thread long read assemblies through the human pangenome using graphaligner.
+
+1. The assemblies will be computationally the simplest, but they are built on 8x coverage hifi, so the assemblies likely have many errors. So instead using the raw reads is probably better.
+2. We should align to a section of the genome too, rather than the whole thing at once. This will definitely get better results.
+
+### Notes for working on All of Us
+
+- [v7 Genomic Quality Report](https://support.researchallofus.org/hc/en-us/articles/4617899955092-All-of-Us-Genomic-Quality-Report-ARCHIVED-C2022Q4R9-CDR-v7) -- methods for how data was processed is described here too.
+- [Controlled CDR Data Directory](https://support.researchallofus.org/hc/en-us/articles/4616869437204-Controlled-CDR-Directory)
+- [Genomic Data Organization Overview](https://support.researchallofus.org/hc/en-us/articles/4614687617556-How-the-All-of-Us-Genomic-data-are-organized#h_01GY7QVTF0E3TKJSFAN40ZTY2Y)
+
+Figures from Quality Report
+Long Read Length Distribution:
+![](lab_notebook_images/lr_length_distribution.png)
+Long Read Coverage Distribution:
+![](lab_notebook_images/lr_coverage_distribution.png)
+
+
+Potentially useful `env` variables to check out:
+```
+HG38_REFERENCE_DICT=gs://genomics-public-data/references/hg38/v0/Homo_sapiens_assembly38.dict
+WORKSPACE_NAMESPACE=aou-rw-d9c60d7d
+WORKSPACE_BUCKET=gs://fc-secure-f6524c24-64d9-446e-8643-415440f52b46
+WGS_LONGREADS_HAIL_GRCH38_PATH=gs://fc-aou-datasets-controlled/v7/wgs/long_read/hail.mt/GRCh38
+HG38_REFERENCE_FASTA=gs://genomics-public-data/references/hg38/v0/Homo_sapiens_assembly38.fasta
+LONG_READS_MANIFEST_PATH=gs://fc-aou-datasets-controlled/v7/wgs/long_read/manifest.csv
+WGS_LONGREADS_JOINT_SNP_INDEL_VCF_T2T_PATH=gs://fc-aou-datasets-controlled/v7/wgs/long_read/joint_vcf/T2T
+WGS_LONGREADS_HAIL_T2T_PATH=gs://fc-aou-datasets-controlled/v7/wgs/long_read/hail.mt/T2T
+HG38_REFERENCE_FAI=gs://genomics-public-data/references/hg38/v0/Homo_sapiens_assembly38.fasta.fai
+WGS_LONGREADS_JOINT_SNP_INDEL_VCF_GRCH38_PATH=gs://fc-aou-datasets-controlled/v7/wgs/long_read/joint_vcf/GRCh38
+```
+
+***Long Read Auxiliary Information***
+```
+Aux (grch38_noalt)
+gs://fc-aou-datasets-controlled/v7/wgs/long_read/aux/auxiliary_metrics.GRCh38.tsv
+
+Aux (T2Tv2.0)
+gs://fc-aou-datasets-controlled/v7/wgs/long_read/aux/auxiliary_metrics.T2T.tsv
+```
+
+To run jobs write script in WDL, use cromshell to launch those jobs, and use a custom python script to launch cromshell.
+- [example repo](https://github.com/CAST-genomics/cast-workflows/tree/gnomix/local_ancestry)
+- [cromshell repo](https://github.com/broadinstitute/cromshell)
+
+Misc AoU Tips
+- Use `set -e` in all WDL tasks so that things don't blow up.
+- `-u ${GOOGLE_PROJECT}` - required for requester pays buckets
+- `--billing-project ${GOOGLE_PROJECT}` - sometimes this works instead
+- `${WORKSPACE_BUCKET}` - google cloud bucket for all files. 
+
+Misc Cromshell Tips
+```
+# Check status of wdl tasks
+cromshell status [id]
+
+# Show logs, this one probably is slightly incorrect
+cromshell logs -s ALL [id]
+
+# Get all metadata for each ran task. -t increases timeout limit
+cromshell -t 200 (timeout limit) metadata [id]
+
+# Get output file names, dj do something.
+cromshell list-outputs -dj? [id]
+
+# Use -help with any cromshell command to get more info.
+```
+
+gcloud storage help page:
+```
+gcloud storage [command]
+      cat                     Outputs the contents of one or more URLs to
+                              stdout.
+      cp                      Upload, download, and copy Cloud Storage objects.
+      du                      Displays the amount of space in bytes used up
+                              storage resources.
+      hash                    Calculates hashes on local or cloud files.
+      ls                      List Cloud Storage buckets and objects.
+      mv                      Moves or renames objects.
+      rm                      Delete objects and buckets.
+      rsync                   Synchronize content of two buckets/directories.
+      service-agent           Manage a project's Cloud Storage service agent,
+                              which is used to perform Cloud KMS operations.
+      sign-url                Generate a URL with embedded authentication that
+                              can be used by anyone.
+```
+
+### Finding file paths on All of Us
+
+**Column Headers for long reads manifest path**
+```
+gcloud storage --billing-project ${GOOGLE_PROJECT} cat $LONG_READS_MANIFEST_PATH  | head -n 1 | sed 's/,/\n/g'
+
+research_id
+
+hifiasm-primary-asm-fasta
+hifiasm-hap1-asm-fasta
+hifiasm-hap2-asm-fasta
+
+hifiasm-primary-asm-gfa
+hifiasm-hap1-asm-gfa
+hifiasm-hap2-asm-gfa
+
+hifiasm-quast-report-html
+hifiasm-quast-report-summary
+
+chm13v2.0-pav-vcf
+chm13v2.0-pav-tbi
+chm13v2.0-bam
+chm13v2.0-bai
+chm13v2.0-pbi
+chm13v2.0-haplotagged-bam
+chm13v2.0-haplotagged-bai
+
+chm13v2.0-deepvariant-vcf
+chm13v2.0-deepvariant-tbi
+chm13v2.0-deepvariant-phased-vcf
+chm13v2.0-deepvariant-phased-tbi
+chm13v2.0-pbsv-vcf
+chm13v2.0-pbsv-tbi
+chm13v2.0-sniffles-vcf
+chm13v2.0-sniffles-tbi
+chm13v2.0-sniffles-snf
+
+grch38-pav-vcf
+grch38-pav-tbi
+grch38-bam
+grch38-bai
+grch38-pbi
+grch38-haplotagged-bam
+grch38-haplotagged-bai
+
+grch38-deepvariant-vcf
+grch38-deepvariant-tbi
+grch38-deepvariant-phased-vcf
+grch38-deepvariant-phased-tbi
+grch38-pbsv-vcf
+grch38-pbsv-tbi
+grch38-sniffles-vcf
+grch38-sniffles-tbi
+grch38-sniffles-snf
+```
+Breakdown:
+- `pav` is a phasing tool.
+- `haplotagged`indicates each read is assigned to a parental haplotype based on the alleles present.
+- `deepvariant`, `sniffles`, and `pbsv` are SV callers. In general sniffles performs the best, but they are unique calls made by all 3 tools.
+- `quast` is a tool that rates the quality of a given assembly.
+- `hifiasm` is a tool that generates assemblies from reads.
+
+**Questions:**
+1. Why are we storing assemblies in GFAs?
+2. Why do we have primary, hap1, and hap2 assemblies? There should be only 2 total.
+
+Read some papers and documentation and looked into the data to arrive at the below conclusions.
+
+**Answers:**
+1. Each GFA contains every contig as a segment, then several A or assembly lines described [here](https://github.com/chhylp123/hifiasm/issues/91). The assembly lines describe where and how each read aligns to each contig. So the gfa file describes the relationship between the assemblies and the reads. Reads can be assigned to both haplotypes but in many cases where the haplotypes diverge, they are not. The fasta files are then generated from the GFAs.
+2. The assemblies are generated using hifiasm. The primary assembly uses all reads, whereas the phased assemblies use only portions. [Paper for more info.](https://www.nature.com/articles/s41592-020-01056-5). The primary assembly tends to be higher quality by reviewing the auN metrics from quast. But because it swaps between both haplotypes it may not be as useful for our purpose. Based on a few n90 numbers, so long as our region of interest is alignable by haplotigs of length 40kb we should prefer the phased assemblies.
+
+I also found [the GitHub](https://github.com/broadinstitute/long-read-pipelines/tree/56972aac1bbbe2c55c6f1f08ea1dd1c2c899928c) for all pipelines used to generate long-reads data for AoU.
+
+
+
+## 2024-08-29
+
+### Align phased assemblies into human-pangenome 
+
+1. Is it reasonable to do entire chromosomes if we only have a few haplotigs?
+2. How does the quality of the alignments vary if we use the raw reads in a small region?
 

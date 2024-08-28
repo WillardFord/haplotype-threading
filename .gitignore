@@ -5,7 +5,7 @@ data/*
 results/*
 
 # Lab notebook
-!results/lab_notebook.md
+!results/lab_notebook*
 
 # Compiled Executables
 bin*
