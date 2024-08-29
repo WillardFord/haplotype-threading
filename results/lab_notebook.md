@@ -90,7 +90,7 @@ Default `-x asm` exists for assemblies. Should also test `lr` for long reads.
 ```bash
 git submodule add https://github.com/lh3/minigraph src/minigraph
 cd src/minigraph; make; 
-cp minigraph ../../bin; cd ../..
+cp minigraph ../../bin/; cd ../..
 
 minigraph -x asm $OUTPUT/chr1:16478848-16878847.gfa $OUTPUT/chr1:16478848-16878847.fa -t 4 > $OUTPUT/chr1tochr1-minigraph.gaf 2> >(tee $OUTPUT/logs/chr1tochr1-minigraph_$(TIMESTAMP).log >&2)
 # Takes about 24 seconds, 3 different alignments, 1 the total length + 2 others 50% length. Found more than graphaligner due to lower threshold
@@ -389,14 +389,38 @@ Read some papers and documentation and looked into the data to arrive at the bel
 1. Each GFA contains every contig as a segment, then several A or assembly lines described [here](https://github.com/chhylp123/hifiasm/issues/91). The assembly lines describe where and how each read aligns to each contig. So the gfa file describes the relationship between the assemblies and the reads. Reads can be assigned to both haplotypes but in many cases where the haplotypes diverge, they are not. The fasta files are then generated from the GFAs.
 2. The assemblies are generated using hifiasm. The primary assembly uses all reads, whereas the phased assemblies use only portions. [Paper for more info.](https://www.nature.com/articles/s41592-020-01056-5). The primary assembly tends to be higher quality by reviewing the auN metrics from quast. But because it swaps between both haplotypes it may not be as useful for our purpose. Based on a few n90 numbers, so long as our region of interest is alignable by haplotigs of length 40kb we should prefer the phased assemblies.
 
-I also found [the GitHub](https://github.com/broadinstitute/long-read-pipelines/tree/56972aac1bbbe2c55c6f1f08ea1dd1c2c899928c) for all pipelines used to generate long-reads data for AoU.
-
-
+I also found [the GitHub](https://github.com/broadinstitute/long-read-pipelines/tree/56972aac1bbbe2c55c6f1f08ea1dd1c2c899928c) of all pipelines used to generate long-read data for AoU.
 
 ## 2024-08-29
 
+```bash
+OUTPUT=results/2024-08-28
+```
+
 ### Align phased assemblies into human-pangenome 
+
+Working in All of Us
 
 1. Is it reasonable to do entire chromosomes if we only have a few haplotigs?
 2. How does the quality of the alignments vary if we use the raw reads in a small region?
 
+### set up all of us environment:
+
+```bash
+git clone --recurse-submodules https://github.com/WillardFord/haplotype-threading; cd haplotype-threading
+
+# minigraph
+cd src/minigraph; make; 
+cp minigraph ../../bin/; cd ../..
+
+# graphaligner
+conda create -n haplotype-threading graphaligner -c bioconda
+conda activate haplotype-threading
+
+# GRCh38 Pangenome
+wget https://s3-us-west-2.amazonaws.com/human-pangenomics/pangenomes/freeze/freeze1/minigraph-cactus/hprc-v1.1-mc-grch38/hprc-v1.1-mc-grch38.gfa.gz; mv hprc-v1.1-mc-grch38.gfa.gz data/
+
+python src/utils/configure_cromshell.py
+```
+
+### Test aligners on a small example
