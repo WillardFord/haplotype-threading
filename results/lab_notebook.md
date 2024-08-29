@@ -389,7 +389,7 @@ Read some papers and documentation and looked into the data to arrive at the bel
 1. Each GFA contains every contig as a segment, then several A or assembly lines described [here](https://github.com/chhylp123/hifiasm/issues/91). The assembly lines describe where and how each read aligns to each contig. So the gfa file describes the relationship between the assemblies and the reads. Reads can be assigned to both haplotypes but in many cases where the haplotypes diverge, they are not. The fasta files are then generated from the GFAs.
 2. The assemblies are generated using hifiasm. The primary assembly uses all reads, whereas the phased assemblies use only portions. [Paper for more info.](https://www.nature.com/articles/s41592-020-01056-5). The primary assembly tends to be higher quality by reviewing the auN metrics from quast. But because it swaps between both haplotypes it may not be as useful for our purpose. Based on a few n90 numbers, so long as our region of interest is alignable by haplotigs of length 40kb we should prefer the phased assemblies.
 
-I also found [the GitHub](https://github.com/broadinstitute/long-read-pipelines/tree/56972aac1bbbe2c55c6f1f08ea1dd1c2c899928c) of all pipelines used to generate long-read data for AoU.
+I also found [the GitHub](https://github.com/broadinstitute/long-read-pipelines/tree/main) of all pipelines used to generate long-read data for AoU.
 
 ## 2024-08-29
 
@@ -405,6 +405,8 @@ Working in All of Us
 2. How does the quality of the alignments vary if we use the raw reads in a small region?
 
 ### set up all of us environment:
+
+Added utils stolen from [Dr. Gymrek's cast-workflows](https://github.com/CAST-genomics/cast-workflows/tree/gnomix/utils).
 
 ```bash
 git clone --recurse-submodules https://github.com/WillardFord/haplotype-threading; cd haplotype-threading
@@ -423,4 +425,12 @@ wget https://s3-us-west-2.amazonaws.com/human-pangenomics/pangenomes/freeze/free
 python src/utils/configure_cromshell.py
 ```
 
-### Test aligners on a small example
+### Test aligners on a single alignment
+
+
+```
+gcloud storage --billing-project ${GOOGLE_PROJECT} cat $LONG_READS_MANIFEST_PATH
+
+
+# Instant, no alignments found
+```

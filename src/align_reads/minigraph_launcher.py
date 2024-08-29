@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
-Script to launch AOU Gnomix for local ancestry inference
+Script to launch minigraph for alignment to a pangenome.
+Based on https://github.com/CAST-genomics/cast-workflows/blob/gnomix/local_ancestry/gnomix_launcher.py
+
 
 Dryrun:
 chrom=11; ./gnomix_launcher.py \
@@ -21,8 +23,6 @@ import sys
 sys.path.append("../utils")
 import aou_utils
 
-GNOMIXMODEL = "gs://artifacts.ucsd-medicine-cast.appspot.com/resources/pretrained_gnomix_models.tar.gz"
-
 def GetBatchVCFFiles(vcfdir, max_batches):
 	cmd = "gsutil ls %s/*.vcf.gz"%(vcfdir)
 	output = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE).stdout.read().decode("utf-8")
@@ -33,12 +33,14 @@ def GetBatchVCFFiles(vcfdir, max_batches):
 
 def main():
 	parser = argparse.ArgumentParser(__doc__)
+
 	parser.add_argument("--vcfdir", help="GCP bucket with batch VCF files", \
 		type=str, required=True)
 	parser.add_argument("--name", help="Name of the run", type=str, required=True)
 	parser.add_argument("--chrom", help="Which chromosome to process", type=str, required=True)
 	parser.add_argument("--gnomix-model", help="GCP path to pretrained model", type=str, \
 		default=GNOMIXMODEL)
+
 	# For debugging
 	parser.add_argument("--dryrun", help="Set up job but don't launch", \
 		action="store_true")
