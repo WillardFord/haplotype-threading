@@ -428,9 +428,8 @@ python src/utils/configure_cromshell.py
 ### Test aligners on a single alignment
 
 
+I have to make some dockers for the wdl tasks.
+This works but I'm not sure how to actually upload the image to dockerhub or google cloud so that it can be used on All of Us.
 ```
-gcloud storage --billing-project ${GOOGLE_PROJECT} cat $LONG_READS_MANIFEST_PATH
-
-
-# Instant, no alignments found
+docker build -t minigraph:latest -f src/align_reads/dockerfiles/Dockerfile.minigraph .
 ```

@@ -1,0 +1,4 @@
+# Based on Niema's https://hub.docker.com/r/niemasd/minigraph
+FROM alpine
+
+RUN apk update && apk add gcc make zlib-dev musl-dev && wget -qO- "https://github.com/lh3/minigraph/archive/refs/tags/v0.21.tar.gz" | tar -zx && cd minigraph-0.21/ && sed -i s/-msse4//g Makefile && make && chmod a+x minigraph && mv minigraph /usr/local/bin/minigraph && cd ../ && rm -rf minigraph-0.21

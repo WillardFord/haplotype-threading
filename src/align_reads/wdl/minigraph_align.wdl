@@ -21,21 +21,6 @@ workflow minigraph_align {
         File refpanel_index
     }
 
-    # Call Beagle/gnomix on batches
-    Int num_batches = length(batch_vcf_files)
-#    scatter (i in range(num_batches)) {
-#        File batch_vcf = batch_vcf_files[i]
-#        call gnomix_t.run_gnomix as run_gnomix {
-#
-#        }
-#    }
-
-    # Merge the output
-#    call gnomix_t.merge_gnomix as merge_gnomix {
-#        input:
-#            gnomix_outputs_msp=run_gnomix.msp_outfile,
-#    }
-
     ### Output files ####
     output {
         File msp_outfile = merge_gnomix.msp_outfile
