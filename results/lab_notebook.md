@@ -154,7 +154,7 @@ chmod +x vg; mv vg bin
 
 vg view -a [path_to_.gam]
 ```
-
+vg view -a 
 ```bash
 conda activate haplotype-threading
 
@@ -393,17 +393,6 @@ I also found [the GitHub](https://github.com/broadinstitute/long-read-pipelines/
 
 ## 2024-08-29
 
-```bash
-OUTPUT=results/2024-08-28
-```
-
-### Align phased assemblies into human-pangenome 
-
-Working in All of Us
-
-1. Is it reasonable to do entire chromosomes if we only have a few haplotigs?
-2. How does the quality of the alignments vary if we use the raw reads in a small region?
-
 ### set up all of us environment:
 
 Added utils stolen from [Dr. Gymrek's cast-workflows](https://github.com/CAST-genomics/cast-workflows/tree/gnomix/utils).
@@ -425,11 +414,22 @@ wget https://s3-us-west-2.amazonaws.com/human-pangenomics/pangenomes/freeze/free
 python src/utils/configure_cromshell.py
 ```
 
-### Test aligners on a single alignment
-
-
 I have to make some dockers for the wdl tasks.
 This works but I'm not sure how to actually upload the image to dockerhub or google cloud so that it can be used on All of Us.
 ```
 docker build -t minigraph:latest -f src/align_reads/dockerfiles/Dockerfile.minigraph .
 ```
+
+## 2024-08-30
+
+```bash
+OUTPUT=results/2024-08-30
+```
+
+HPRC assemblies will be used as a ground truth. Next steps look like:
+1. Align all HPRC assemblies to pangenome
+2. Pull out the paths from the output files, (store as GBZ files perhaps)
+3. Score them against known paths from pangenome to determine quality of alignments
+
+(repeat for long-reads, repeat for short-reads)
+
