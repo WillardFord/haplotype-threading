@@ -426,6 +426,8 @@ docker build -t minigraph:latest -f src/align_reads/dockerfiles/Dockerfile.minig
 OUTPUT=results/2024-08-30
 ```
 
+HPRC Assemblies are in pangenome. Are CHM13Y and GRCH38?
+
 HPRC assemblies will be used as a ground truth. Next steps look like:
 1. Align all HPRC assemblies to pangenome
 2. Pull out the paths from the output files, (store as GBZ files perhaps)
@@ -433,3 +435,63 @@ HPRC assemblies will be used as a ground truth. Next steps look like:
 
 (repeat for long-reads, repeat for short-reads)
 
+**Question:** Should we be using the minigraph-cactus version of the pangenome or the minigraph version.
+- minigraph has less nodes and will likely run faster
+- TODO: need to read cactus paper and minigraph-cactus pipline paper and probably ask Dr. Gymrek
+
+### Download HPRC Assemblies
+
+The HPRC assemblies are most efficiently stored in (AGC files)[https://github.com/human-pangenomics/HPP_Year1_Assemblies]. There is also a list of contigs that are likely contamination that we should filter out.
+
+Collect them using comands below:
+```bash
+wget -O data/HPRC-yr1.agc https://zenodo.org/records/5826274/files/HPRC-yr1.agc?download=1
+wget -O data/y1_genbank_remaining_potential_contamination.txt https://raw.githubusercontent.com/human-pangenomics/HPP_Year1_Assemblies/main/genbank_changes/y1_genbank_remaining_potential_contamination.txt
+
+# download precompiled AGC binary for Linux
+curl -L https://github.com/refresh-bio/agc/releases/download/v1.1/agc-1.1_x64-linux.tar.gz | tar -zxvf - agc-1.1_x64-linux/agc; cp agc-1.1_x64-linux/agc bin/; rm -rf agc-1.1_x64-linux
+```
+
+AGC useful commands:
+```bash
+# List all assembly ids
+agc listset data/HPRC-yr1.agc | wc -l
+95
+
+# Get fasta to stdout of assembly id
+agc getset data/HPRC-yr1.agc NA18906.1 | less -S
+```
+
+Contig naming convention: {sample_id}#{haplotype}#original_contig_id
+In assembly id and in original_contig_id, trailing `.1` indicates paternal haplotype and `.2` indicates maternal haplotype.
+
+### Write slurm script to align all HPRC assemblies to the pangenome
+
+```bash
+mkdir results/2024-08-30_HPRC_minigraph_alignments
+sbatch src/align_assembly/slurm/minigraph_align.slurm
+# Check progress
+squeue -u [username]
+```
+
+This script generates `.gaf` alignments of all assemblies in `data/HPRC-yr1.agc` to the full HPRC minigraph-cactus pangenome at `data/hprc-v1.1-mc-grch38.gfa`. 
+
+### Misc Notes on minigraph-cactus vs minigraph
+
+- minigraph intentionally discards any variants less than 50bps. This means that paths through minigraph for a given haplotype intentionally don't exist because they cannot be represented without losing significant variation.
+- minigraph cactus reintroduces these smaller variants in a subsequent step performing multiple alignment at a base pair level of all haplotypes used to generate the graph in the first place. These alignments are then reduced in some way with cactus (Need some help understanding) and then used to make a new graph.
+- This new graph then has any structural variants not in minigraph clipped out as likely errors and is the default minigraph-cactus graph in HPRC. 
+- They also generated another graph by removing nodes that have fewer than N haplotypes and suggest suggest the allele-frequency filtered graph is better for short read mapping and variant calling. These are the graphs that vg Giraffe has used as input. In my own experimentation a huge portion of the nodes had very few haplotypes passing through them so this likely reduced the size of the graph by a lot, but I'm skeptical if removing spurious alignments didn't also remove many correct alignments.
+- The main advantage of minigraph cactus is that every haplotype is represented by a path through the graph, whereas in minigraph you are losing many, many small variations.
+- minigraph-cactus has ~200x as many nodes as minigraph
+- CHM13 performs slightly better than grch38, especially localized to specific regions that are "falsely duplicated or collapsed" in grch38. TODO: what are these faulty regions in the reference genome?
+- Challenging Medically Relevant Genes (CRMG) Truth Set
+
+
+Tools to review more about:
+- Pangenie - Structural Variant Genotyping tool based on short reads, hmm, alignment free
+- Girraffe - Short read alignment tool to a pangenome
+
+Do we care about small variants?
+- deep variant - also does long
+- free bayes - second choice of HPRC consortium without properly trained deep variant model
