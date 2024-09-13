@@ -15,7 +15,7 @@ For this directory I'm copying the project structure reccomended by [this paper]
 
 Log syntax
 ```bash
-function TIMESTAMP () { echo $(TZ=US/Pacific; date '+%Y-%m-%d_%H:%M:%S'); }
+function TIMESTAMP () { echo $(TZ=US/Pacific; date '+%Y-%m-%d_%H-%M-%S'); }
 [command] 2>&1 | tee results/[out_date]/[name]_$(TIMESTAMP).log
 ```
 
@@ -495,3 +495,82 @@ Tools to review more about:
 Do we care about small variants?
 - deep variant - also does long
 - free bayes - second choice of HPRC consortium without properly trained deep variant model
+
+## 2024-09-11
+
+Alignment script for graphaligner
+
+```bash
+sbatch src/align_assembly/slurm/graphaligner.slurm
+watch squeue -u [username]
+```
+
+Aligning an assembly to the whole genome doesn't work nicely.
+
+For minigraph it takes more than 8 hours so it dies on the condo nodes, it may work if we let it run for a day+. With only 25 GB of memory we didn't have any issues.
+
+For graphaligner, slurm kept killing the job due to running out of space. It was able to load the graph in memory but during the alignment step it eventually runs out of memory even when given 128 GB of memory. Memory use seems to scale with the size of the input.
+
+Then we probably have to segment the pangenome graph and/or the assembly first. Tomorrow we will try segmenting both.
+
+## 2024-09-12
+
+### Align only a segment of the assembly to a subset pangenome
+
+**Segment the pangenome with gfabase**
+I already have gfabase binary installed in my path elsewhere
+```
+gfabase --version
+# gfabase 0.6.0
+
+gfabase sub data/hprc-v1.1-mc-grch38.gfab --range GRCh38#${CHROM}:${START}-${END} --view -o ${TEMP_GFA}
+gfabase sub data/hprc-v1.1-mc-grch38.gfab --range GRCh38#${CHROM}:${START}-${END} --view -o ${TEMP_GFA}
+
+```
+
+**Segment the assemblies with gfabase**
+
+1. Filter out bad contigs of assembly
+2. Align assembly to GRCh38 -- minimap2
+3. Pull out segment from assembly corresponding to GRCh38 range -- samtools
+
+I already have samtools in my path elsewhere
+
+Download minimap2
+``` bash
+git submodule add https://github.com/lh3/minimap2 src/minimap2
+cd src/minimap2 && make
+cd ../.. && cp src/minimap2/minimap2 bin
+minimap2 --version
+# 2.28-r1209
+```
+
+This following script takes in 3 variables `CHROM`,`START`, and `END` that define a range within GRCh38. Then, for each of the 95 haplotypes used to generate the Human Pangenome, it does the following:
+1. Save and clean the haplotype from HPRC -- dropping suggested contaminated haplotigs
+2. Align haplotype to GRCh38 -- minimap2 asm to asm
+3. Subset haplotigs to only those overlapping the region in GRCh38 -- samtools view
+4. Subset Human Pangenome to overlapping nodes in GRCh38 -- gfabase sub
+5. Align kept haplotigs to subsetted pangenome -- minigraph
+
+
+``` bash
+# HLA_REGION is within chr6:29742532-30245870
+sbatch --export=CHROM=chr6,START=29742532,END=30245870 src/align_assembly/slurm/subset_minigraph_align.slurm
+```
+
+Note: long-reads are often given the flag `supplementary` because different parts map to different locations on the reference genome. This is usually an indication of an error but in a structural variant region this is can be expected behaviour for individuals of different ancestry than hg38 a specific locus. `samtools fasta` does not include any reads with the supplementary flag so we use awk instead to keep all reads. This needs to be looked more into however to be sure. # TODO
+
+Note: Cleaning haplotype everytime is excessive, we could save the file in this directory.
+
+## 2024-09-13
+
+TODO:
+1. Generate the same script for graphaligner
+2. Only segmenting the pangenome will probably lead to more accurate results. Segmenting the contigs/reads to align is probably only neccessary when dealing with many reads, not when working with a single assembly.
+3. Try on many regions of interest
+
+**Questions:**
+1. How can we turn a set of haplotype-pangenome alignments into called variants so that we can actually perform gwas-esque studies. Are we using nodes alone or are we generating bubbles from the nodes. `minigraph` has a variant calling feature on a gfa that we could build around our kept nodes but we should look more into other options. 
+2. When we eventually get to short-reads giraffe aligner is designed for short reads, though I need to do a bit more thorough review.
+
+

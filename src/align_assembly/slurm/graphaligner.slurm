@@ -3,14 +3,14 @@
 #SBATCH --partition condo
 #SBATCH --account ddp268
 #SBATCH --qos condo
-#SBATCH --job-name hprc_minigraph_align
+#SBATCH --job-name hprc_graphalinger
 #SBATCH --nodes 1
 #SBATCH --ntasks 1
 #SBATCH --cpus-per-task 64
-#SBATCH --mem 25G
+#SBATCH --mem 128G
 #SBATCH --time 8:00:00
-#SBATCH --output results/2024-08-30_HPRC_minigraph_alignments/slurm_logs/%j.out-%N
-#SBATCH --output results/2024-08-30_HPRC_minigraph_alignments/slurm_logs/%j.err-%N
+#SBATCH --output results/2024-09-11_HPRC_graphaligner/slurm_logs/%j.out-%N
+#SBATCH --output results/2024-09-11_HPRC_graphaligner/slurm_logs/%j.err-%N
 #SBATCH --array=1-2%4 # Run for indicies 1-95 inclusive and only let 4 jobs run at a time
 
 # This slurm file iterates over all HPRC assemblies and aligns them to the pangenome.
@@ -34,16 +34,16 @@ HAP_ID=$( agc listset ${ASSEMBLIES_AGC} | head -n ${JOB_INDEX} | tail -n 1 )
 
 # Temporary File Location
 TEMP_DIR=/var/tmp/wwford
-TEMP_FASTA=${TEMP_DIR}/minigraph_${HAP_ID}_${JOB_INDEX}.fa
+TEMP_FASTA=${TEMP_DIR}/graphalinger_${HAP_ID}_${JOB_INDEX}.fa
 
 # Outputs
-SLURM_LOG_FOLDER=results/2024-08-30_HPRC_minigraph_alignments/slurm_logs
-LOG_FOLDER=results/2024-08-30_HPRC_minigraph_alignments/logs/
-
 function TIMESTAMP () { echo $(TZ=US/Pacific; date '+%Y-%m-%d_%H-%M-%S'); }
-OUTPUT_GAF=results/2024-08-30_HPRC_minigraph_alignments/minigraph_${HAP_ID}.gaf
-OUTPUT_LOG=${LOG_FOLDER}/minigraph_${HAP_ID}_$(TIMESTAMP).log
+OUTPUT_GAM=results/2024-09-11_HPRC_graphaligner/graphaligner_${HAP_ID}.gam
+OUTPUT_LOG=results/2024-09-11_HPRC_graphaligner/logs/graphaligner_${HAP_ID}_$(TIMESTAMP).log
 
+# Required Folders
+SLURM_LOG_FOLDER=results/2024-09-11_HPRC_graphaligner/slurm_logs
+LOG_FOLDER=results/2024-09-11_HPRC_graphaligner/logs
 
 # - Reads fasta from stdin, 
 # - deletes contaminated contigs and sends to stdout
@@ -83,24 +83,25 @@ if [ ! -d ${TEMP_DIR} ]; then
 fi
 
 # Generate temporary fasta from agc
-echo "Saving Fasta to ${TEMP_FASTA} $(TIMESTAMP)" >> ${OUTPUT_LOG}
-agc getset data/HPRC-yr1.agc ${HAP_ID} \
+echo "Saving Fasta to ${TEMP_FASTA}     $(TIMESTAMP)" >> ${OUTPUT_LOG}
+agc getset ${ASSEMBLIES_AGC} ${HAP_ID} \
     | delete_contaminated_contigs > ${TEMP_FASTA}
 
-echo "Saved Fasta                   $(TIMESTAMP)" >> ${OUTPUT_LOG}
-echo "Start Align                   $(TIMESTAMP)" >> ${OUTPUT_LOG}
+echo "Saved Fasta                       $(TIMESTAMP)" >> ${OUTPUT_LOG}
 
-# Align fasta with minigraph
-minigraph \
-    -x asm \
-    ${PANGENOME_GFA} \
-    ${TEMP_FASTA} \
-    -t ${SLURM_CPUS_PER_TASK} > \
-        ${OUTPUT_GAF} 2>> \
-        ${OUTPUT_LOG}
+# Activate conda env
+echo "Loading graphaligner conda env    $(TIMESTAMP)" >> ${OUTPUT_LOG}
+#chmod a+w ${OUTPUT_LOG}
+source /tscc/nfs/home/wwford/miniconda3/etc/profile.d/conda.sh
+conda activate haplotype-threading
 
-echo "Done Align to ${OUTPUT_GAF}   $(TIMESTAMP)" >> ${OUTPUT_LOG}
+# Align fasta with graphaligner
+echo "Start Align                       $(TIMESTAMP)" >> ${OUTPUT_LOG}
+GraphAligner -g ${PANGENOME_GFA} -f ${TEMP_FASTA} -t ${SLURM_CPUS_PER_TASK} -a ${OUTPUT_GAM} --precise-clipping 0.95 -x vg \
+    2>&1 >> ${OUTPUT_LOG}
+
+echo "Done Align to ${OUTPUT_GAM}       $(TIMESTAMP)" >> ${OUTPUT_LOG}
 
 # Delete temporary fasta
 rm ${TEMP_FASTA}
-echo "Deleted Fasta                 $(TIMESTAMP)" >> ${OUTPUT_LOG}
+echo "Deleted Temp Fasta                $(TIMESTAMP)" >> ${OUTPUT_LOG}

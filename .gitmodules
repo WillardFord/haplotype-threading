@@ -4,3 +4,6 @@
 [submodule "src/pbsim3"]
 	path = src/pbsim3
 	url = https://github.com/yukiteruono/pbsim3
+[submodule "src/minimap2"]
+	path = src/minimap2
+	url = https://github.com/lh3/minimap2
