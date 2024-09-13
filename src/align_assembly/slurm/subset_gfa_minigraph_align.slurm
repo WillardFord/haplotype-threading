@@ -9,11 +9,11 @@
 #SBATCH --cpus-per-task 64
 #SBATCH --mem 25G
 #SBATCH --time 8:00:00
-#SBATCH --error results/2024-09-13/slurm_logs/%j.err
-#SBATCH --output results/2024-09-13/slurm_logs/%j.out
+#SBATCH --error results/2024-09-12_subset_minigraph_align/slurm_logs/%j.err
+#SBATCH --output results/2024-09-12_subset_minigraph_align/slurm_logs/%j.out
 #SBATCH --array=1-95%16 # Run for indicies 1-95 inclusive and only let 16 jobs run at a time
 
-# Subsets both the assembly and the gfa
+# Subset only the gfa
 
 set -e
 function TIMESTAMP () { echo $(TZ=US/Pacific; date '+%Y-%m-%d_%H-%M-%S'); }
@@ -23,7 +23,7 @@ function TIMESTAMP () { echo $(TZ=US/Pacific; date '+%Y-%m-%d_%H-%M-%S'); }
 #################
 
 # Inputs
-RESULTS_DIR=results/2024-09-12_subset_minigraph_align
+RESULTS_DIR=results/2024-09-13
 PANGENOME_GFA=data/hprc-v1.1-mc-grch38.gfa
 PANGENOME_GFAB=data/hprc-v1.1-mc-grch38.gfab
 ASSEMBLIES_AGC=data/HPRC-yr1.agc
@@ -35,14 +35,11 @@ RANGE_IN_PATH=${CHROM}_${START}-${END}
 JOB_INDEX=${SLURM_ARRAY_TASK_ID}
 HAP_ID=$( agc listset ${ASSEMBLIES_AGC} | head -n ${JOB_INDEX} | tail -n 1 )
 
-# Temporary File Location
-TEMP_DIR=/var/tmp/wwford
-TEMP_CLEAN_FASTA=${TEMP_DIR}/clean_${HAP_ID}.fa
+# Intermediate File Locations
+INTERMEDIATE_DIR=${RESULTS_DIR}/HPRC_assemblies
+INTERMEDIATE_CLEAN_FASTA=${INTERMEDIATE_DIR}/clean_${HAP_ID}.fa
 
-ALIGN_DIR=${RESULTS_DIR}/hg38_alignments
-ALIGN_BAM=${ALIGN_DIR}/hg38_align_${HAP_ID}.bam
-SUBSET_RANGE_DIR=${RESULTS_DIR}/subsets/${RANGE_IN_PATH}
-SUBSET_FASTA=${SUBSET_RANGE_DIR}/subset_${HAP_ID}_${JOB_INDEX}.fa
+SUBSET_RANGE_DIR=results/2024-09-12_subset_minigraph_align/subsets
 SUBSET_GFA=${SUBSET_RANGE_DIR}_mc.gfa
 
 # Outputs
@@ -65,7 +62,7 @@ output_exists () {
     fi
 }
 
-# Make log, temp, and output dirs if they do not exist
+# Make log, intermediate, and output dirs if they do not exist
 make_dir_if () {
     if [ ! -d $1 ]; then
         mkdir -p $1 ;
@@ -74,10 +71,9 @@ make_dir_if () {
 make_dirs () {
     make_dir_if ${SLURM_LOG_FOLDER}
     make_dir_if ${LOG_FOLDER}
-    make_dir_if ${TEMP_DIR}
+    make_dir_if ${INTERMEDIATE_DIR}
     make_dir_if ${OUTPUT_DIR}
     make_dir_if ${SUBSET_RANGE_DIR}
-    make_dir_if ${ALIGN_DIR}
 }
 
 # Delete likely contaminated contigs from HPRC assemblies
@@ -94,26 +90,11 @@ delete_contaminated_contigs () {
 
 # Make clean fasta if it does not exist
 clean_fasta () {
-    if [ -e ${TEMP_CLEAN_FASTA} ]; then
-        echo "${TEMP_CLEAN_FASTA} already exists" >> ${OUTPUT_LOG}
+    if [ -e ${INTERMEDIATE_CLEAN_FASTA} ]; then
+        echo "${INTERMEDIATE_CLEAN_FASTA} already exists" >> ${OUTPUT_LOG}
     else
-        agc getset data/HPRC-yr1.agc ${HAP_ID} | delete_contaminated_contigs > ${TEMP_CLEAN_FASTA}
+        agc getset data/HPRC-yr1.agc ${HAP_ID} | delete_contaminated_contigs > ${INTERMEDIATE_CLEAN_FASTA}
     fi
-}
-
-# align fasta to grch38
-align_fasta () {
-    if [ -e ${ALIGN_BAM} ]; then
-        echo "${ALIGN_BAM} already exists" >> ${OUTPUT_LOG}
-    else
-        minimap2 -ax asm5 ${REFERENCE_HG38} ${TEMP_CLEAN_FASTA} -t ${SLURM_CPUS_PER_TASK} 2>> ${OUTPUT_LOG} | samtools sort -o ${ALIGN_BAM}
-        samtools index ${ALIGN_BAM}
-    fi
-}
-
-# subset fasta based on grch38 coords
-subset_fasta () {
-    samtools view ${ALIGN_BAM} ${RANGE} | awk -v id_col=1 -v seq_col=10 '{print ">"$id_col"\n"$seq_col}' > ${SUBSET_FASTA}
 }
 
 subset_graph () {
@@ -129,7 +110,7 @@ align_to_graph () {
     minigraph \
         -x asm \
         ${SUBSET_GFA} \
-        ${SUBSET_FASTA} \
+        ${INTERMEDIATE_CLEAN_FASTA} \
         -t ${SLURM_CPUS_PER_TASK} > \
             ${OUTPUT_GAF} 2>> \
             ${OUTPUT_LOG}
@@ -148,17 +129,9 @@ echo "SLURM_ARRAY_TASK_ID   ${SLURM_ARRAY_TASK_ID}" >> ${OUTPUT_LOG}
 # Check if output already exists
 output_exists
 
-echo "Saving clean temp fasta       $(TIMESTAMP)" >> ${OUTPUT_LOG}
+echo "Saving clean fasta            $(TIMESTAMP)" >> ${OUTPUT_LOG}
 clean_fasta
 echo "Saved Fasta                   $(TIMESTAMP)" >> ${OUTPUT_LOG}
-
-echo "Aligning fasta to grch38      $(TIMESTAMP)" >> ${OUTPUT_LOG}
-align_fasta
-echo "Aligned fasta to grch38       $(TIMESTAMP)" >> ${OUTPUT_LOG}
-
-echo "Subsetting fasta              $(TIMESTAMP)" >> ${OUTPUT_LOG}
-subset_fasta
-echo "Subset fasta                  $(TIMESTAMP)" >> ${OUTPUT_LOG}
 
 echo "Subsetting graph              $(TIMESTAMP)" >> ${OUTPUT_LOG}
 subset_graph
@@ -168,7 +141,3 @@ echo "Start Align                   $(TIMESTAMP)" >> ${OUTPUT_LOG}
 align_to_graph
 echo "Done Align                    $(TIMESTAMP)" >> ${OUTPUT_LOG}
 echo "Results at ${OUTPUT_GAF}"
-
-# Delete temporary fasta
-rm ${TEMP_CLEAN_FASTA}
-echo "Deleted Temp Fasta            $(TIMESTAMP)" >> ${OUTPUT_LOG}

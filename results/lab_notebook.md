@@ -565,12 +565,18 @@ Note: Cleaning haplotype everytime is excessive, we could save the file in this 
 ## 2024-09-13
 
 TODO:
-1. Generate the same script for graphaligner
-2. Only segmenting the pangenome will probably lead to more accurate results. Segmenting the contigs/reads to align is probably only neccessary when dealing with many reads, not when working with a single assembly.
+1. Only segmenting the pangenome will probably lead to more accurate results. Segmenting the contigs/reads to align is probably only neccessary when dealing with many reads, not when working with a single assembly.
+2. Generate the same script for graphaligner
 3. Try on many regions of interest
 
 **Questions:**
 1. How can we turn a set of haplotype-pangenome alignments into called variants so that we can actually perform gwas-esque studies. Are we using nodes alone or are we generating bubbles from the nodes. `minigraph` has a variant calling feature on a gfa that we could build around our kept nodes but we should look more into other options. 
 2. When we eventually get to short-reads giraffe aligner is designed for short reads, though I need to do a bit more thorough review.
 
+### Segment only the GFA and align the entire haplotype
 
+``` bash
+sbatch --export=CHROM=chr6,START=29742532,END=30245870 src/align_assembly/slurm/subset_gfa_minigraph_align.slurm
+```
+
+This provides many, many spurius alignments, Doesn't seem like an effective way to move forward.
